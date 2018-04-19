@@ -1,0 +1,76 @@
+﻿<!DOCTYPE html>
+<html>
+    <head>
+        <title>午门_场景版本1.0,项目版本1.0</title>
+        <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+        <script src='js/nprogress.js'></script>
+        <link rel='stylesheet' href='./css/nprogress.css'/>
+        <link rel="stylesheet" href="./css/style.css">
+        <link rel="stylesheet" href="./css/avgrund.css">
+        <script src="js/BrowserDetect.js"></script>
+
+    </head>
+    <body>
+        <div id="percent">0</div>
+        <div id="container">
+
+            <div id="stats"></div>
+            <div id="WebGL-output">
+            </div>
+        </div>
+        <div id="instruction" class="button" style="position: absolute; top:0;left:50%; border: 0;">
+            <a  href="#">显示操作说明</a>
+        </div>
+        <script src="js/objectSel.js"></script>
+        <script type="text/javascript" src="./libs/three.min.js"></script>
+        <script type="text/javascript" src="./libs/jquery-3.2.1.js"></script>
+        <script type="text/javascript" src="./libs/OBJLoader.js"></script>
+        <script src="libs/stats.min.js"></script>
+        <script src="libs/FirstPersonControls.js"></script>
+        <script src="libs/dat.gui.js"></script>
+        <script src="libs/Projector.js"></script>
+        <script src="libs/MTLLoader.js"></script>
+        <script src="js/jquery.avgrund.min.js"></script>
+        <script src="js/SceneLoader.js"></script>
+        <script>
+            var username = prompt("初次加载约耗时1分钟，\n请输入你的名字：");
+            // 加载场景与纹理文件
+            var mtlLoader = new THREE.MTLLoader();
+            mtlLoader.setPath("./models/");
+            $("#WebGL-output").hide();
+            mtlLoader.load("wumen.mtl",function(materials){
+                materials.preload();
+                var objLoader = new THREE.OBJLoader();
+                objLoader.setMaterials(materials);
+
+                objLoader.load('./models/wumen.obj', function(object){
+//                    console.log(object);
+                    object.traverse(function(child){
+                        if(child instanceof THREE.Mesh){
+                            child.material.transparent = true;
+                            // child.material.depthTest = false;
+                            child.material.alphaTest = 0.5;
+                        }
+                    });
+                    objId = object.id;
+                    scene.add(object);
+                    $("#percent").hide();
+                    $("#WebGL-output").show();
+                    NProgress.done();
+                    finalLoadTime = loadTime;
+                },function(event){
+                    // console.log(event);
+                    var ratio = event.loaded / event.total;
+                    var p = ratio * 100;
+                    $("#percent").html(p.toFixed(2));
+                    NProgress.set(ratio);
+                    loadTime = event.timeStamp / 1000;
+                });
+            });
+             camera.position.set(-11,20,1511);
+        </script>
+        <script type="text/javascript" src="tracer.js"></script>
+		<script src="viewer.js" ></script>
+    </script>
+    </body>
+</html>

@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en" style="overflow: hidden;height: 100%">
+<head>
+    <meta charset="UTF-8">
+    <title>兴趣路径绘制Demo</title>
+
+    <script src="lib/three.min.js"></script>
+    <script src="lib/stats.js"></script>
+    <script src="lib/jquery-3.1.0.min.js"></script>
+    <script src="lib/dat.gui.js"></script>
+
+</head>
+<body>
+
+<script>
+
+            // 加载场景与纹理文件
+            var mtlLoader = new THREE.MTLLoader();
+            mtlLoader.setPath("./models/");
+            $("#WebGL-output").hide();
+            mtlLoader.load("wumen.mtl",function(materials){
+                materials.preload();
+                var objLoader = new THREE.OBJLoader();
+                objLoader.setMaterials(materials);
+
+                objLoader.load('./models/wumen.obj', function(object){
+//                    console.log(object);
+                    object.traverse(function(child){
+                        if(child instanceof THREE.Mesh){
+                            child.material.transparent = true;
+                            // child.material.depthTest = false;
+                            child.material.alphaTest = 0.5;
+                        }
+                    });
+                    objId = object.id;
+                    scene.add(object);
+                    $("#percent").hide();
+                    $("#WebGL-output").show();
+                    NProgress.done();
+                    finalLoadTime = loadTime;
+                },function(event){
+                    // console.log(event);
+                    var ratio = event.loaded / event.total;
+                    var p = ratio * 100;
+                    $("#percent").html(p.toFixed(2));
+                    NProgress.set(ratio);
+                    loadTime = event.timeStamp / 1000;
+                });
+            });
+             camera.position.set(-11,20,1511);
+
+
+    var mouseX = 0, mouseY = 0,
+            windowHalfX = window.innerWidth / 2,
+            windowHalfY = window.innerHeight / 2,
+            camera, scene, renderer, material;
+    var windowWidth = window.innerWidth;
+    var windowHeight = window.innerHeight;
+    var scene,renderer;
+    var materialMap = {};
+    var routes = {};
+    var newPoints = [];
+    var lastTime = new Date(0);
+    var nowTime;
+
+    document.onkeydown=function(event){
+        var e = event || window.event || arguments.callee.caller.arguments[0]; ;
+        if(e && e.keyCode==113){
+            fetchNewPoints();
+        }
+    }
+
+    init();
+    animate();
+
+    //setInterval(fetchNewPoints,500);
+
+    function fetchNewPoints(){
+        var xhr = new XMLHttpRequest();
+        nowTime = new Date();
+        xhr.open("GET","http://localhost:8889/?from="+lastTime.getTime() + "&to=" + nowTime.getTime(),true);
+        xhr.send();
+        xhr.onreadystatechange=function(){
+            if(xhr.readyState == 4 && xhr.status == 200){
+                newPoints=JSON.parse(xhr.responseText);
+            }
+        }
+        
+        
+        //console.log(newPoints.length);
+        if(newPoints.length > 0){
+            newPoints.forEach(function(e){
+                if(!(e["ip_addr"] in materialMap)){
+                    var newColor = Math.floor(Math.random()*204+51) + Math.floor(Math.random()*204+51)*256 + Math.floor(Math.random()*204+51)*256 *256;
+                    var newMaterial = new THREE.LineBasicMaterial({color:newColor});
+                    materialMap[e["ip_addr"]] = newMaterial;
+                    routes[e["ip_addr"]]=[];
+                }
+                var point = e;
+                // delete point["ip_addr"];
+                // delete point["timestamp"];
+                // console.log(point);
+                //console.log(routes);
+                if(!routes[e["ip_addr"]])
+                {
+                    routes[e["ip_addr"]] = [];
+                }
+                routes[e["ip_addr"]].push(point);
+            });
+        }
+        newPoints = [];
+
+        for(route in routes){
+            var geometry = new THREE.Geometry();
+            routes[route].forEach(function(e){
+                geometry.vertices.push(new THREE.Vector3(e.cameraX,e.cameraY,e.cameraZ));
+            });
+            var line = new THREE.Line(geometry, materialMap[route]);
+            scene.add(line);
+        }
+        lastTime = nowTime;
+    }
+
+
+    function init() {
+
+        renderer = new THREE.WebGLRenderer();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 1, 500);
+        camera.position.set(0, 0, 100);
+        camera.lookAt(new THREE.Vector3(0, 0, 0));
+
+        scene = new THREE.Scene();
+
+        
+        renderer.render(scene, camera);
+
+        stats = new Stats();
+        //container.appendChild(stats.dom);
+        document.addEventListener( 'mousemove', onDocumentMouseMove, false );
+        document.addEventListener( 'touchstart', onDocumentTouchStart, false );
+        document.addEventListener( 'touchmove', onDocumentTouchMove, false );
+        //
+        window.addEventListener( 'resize', onWindowResize, false );
+    }
+
+    function onWindowResize() {
+        windowHalfX = window.innerWidth / 2;
+        windowHalfY = window.innerHeight / 2;
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize( window.innerWidth, window.innerHeight );
+    }
+    //
+    function onDocumentMouseMove( event ) {
+        mouseX = event.clientX - windowHalfX;
+        mouseY = event.clientY - windowHalfY;
+    }
+    function onDocumentTouchStart( event ) {
+        if ( event.touches.length > 1 ) {
+            event.preventDefault();
+            mouseX = event.touches[ 0 ].pageX - windowHalfX;
+            mouseY = event.touches[ 0 ].pageY - windowHalfY;
+        }
+    }
+    function onDocumentTouchMove( event ) {
+        if ( event.touches.length == 1 ) {
+            event.preventDefault();
+            mouseX = event.touches[ 0 ].pageX - windowHalfX;
+            mouseY = event.touches[ 0 ].pageY - windowHalfY;
+        }
+    }
+    //
+    function animate() {
+        requestAnimationFrame( animate );
+        render();
+    }
+    function render() {
+        camera.position.x += ( mouseX - camera.position.x ) * .05;
+        camera.position.y += ( - mouseY + 200 - camera.position.y ) * .05;
+        camera.lookAt( scene.position );
+        // var time = Date.now() * 0.0005;
+        // for ( var i = 0; i < scene.children.length; i ++ ) {
+        //     var object = scene.children[ i ];
+        //     if ( object instanceof THREE.Line ) {
+        //         object.rotation.y = time * ( i % 2 ? 1 : -1 );
+        //     }
+        // }
+        renderer.render( scene, camera );
+    }
+</script>
+
+<div id="Stats-output">
+</div>
+<!-- Div which will hold the Output -->
+<div id="WebGL-output">
+</div>
+
+</body>
+</html>
